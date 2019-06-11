@@ -16,6 +16,6 @@ Violeta Nashielli Andrade Méndez
 
 ## Dataset
 
-Puede chequear el dataset en la siguiente dirección:
+Se puede revisar el dataset completo en la siguiente dirección:
 
 [https://www.kaggle.com/wendykan/lending-club-loan-data.csv](https://www.kaggle.com/wendykan/lending-club-loan-data.csv)
