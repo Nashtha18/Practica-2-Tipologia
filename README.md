@@ -1,6 +1,6 @@
 # Practica 2 Tipología y ciclo de vida de los datos
 
-##Lending Club Loan Data
+Lending Club Loan Data
 
 ## Autor
 
