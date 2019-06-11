@@ -1,0 +1,300 @@
+---
+title: 'Tipología: PRA2 - Limpieza y validación de los datos'
+author: "Autor: Violeta Andrade"
+date: "Junio 2019"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: 
+  word_document: default
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+*****
+# Introducción y carga de datos
+*****
+
+A la muestra aleatoria se le llamó MUESTRA_LOAN y es la base con la que trabajaremos en esta práctica.
+
+```{r message= FALSE, warning=FALSE}
+# Cargaremos la muestra de la base
+data <- read.csv('MUESTRA_LOAN.csv',stringsAsFactors = FALSE)
+# Desplegamos las columnas de data
+colnames(data)
+```
+
+Ahora podemos ver que eliminamos los dos id que contenía la base original, esto se hizo porque ambos venian completamente vacíos. Por esta razón añadiremos un consecutivo que servirá como id para esta nueva base.
+
+```{r}
+# insertaremos un consecutivo en la base
+data$id<-1:nrow(data)
+```
+
+A continuación veremos la forma de la base data
+
+```{r}
+str(data)
+```
+
+Ahora comenzaremos con la exploración y la limpieza  de los datos. Empezamos con identificar si es que existen valores nulos en alguna de las variables elegidas:
+```{r}
+colSums(is.na(data))
+colSums(data=="")
+```
+
+Existen variables numéricas que tienen valores vacíos como: proporcion_pagos, meses_mala_calif, ingreso_conjunto, saldo_total, saldo_plazos e hipotecas. 
+Llenaremos estos valores vacíos con 0 ya que parece la opción que más se ajusta a todos los atributos.
+```{r}
+data$proporcion_pagos[is.na(data$proporcion_pagos)] <-0
+data$meses_mala_calif[is.na(data$meses_mala_calif)] <-0
+data$ingreso_conjunto[is.na(data$ingreso_conjunto)] <-0
+data$saldo_total[is.na(data$saldo_total)] <-0
+data$saldo_plazos[is.na(data$saldo_plazos)] <-0
+data$hipotecas[is.na(data$hipotecas)] <-0
+```
+
+También hay variables tipo char con valores vacíos como: trabajo_prestatario, tipo_prestamo y pagos_mes_anterior.
+Para el atributo trabajo_prestatario llenaremos los valores vacíos con "ND", o no disponible. En el caso de tipo_prestamo eliminaremos los registros que tengan esta columna vacía, ya que es una de las variables más importantes y son muy pocos registros.
+Por último, también eliminaremos los registros con el atributo pagos_mes_anterior vacío.
+
+```{r}
+data$trabajo_prestatario[data$trabajo_prestatario==""]="ND"
+data_2<-subset(data,tipo_prestamo!="")
+data_fin<-subset(data_2,pagos_mes_anterior!="")
+str(data_fin)
+```
+
+Se eliminaron 134 registros de la base muestra y nos quedan 9866 registros.
+A continuación veremos que variables sería posible discretizar. 
+
+```{r}
+apply(data_fin,2, function(x) length(unique(x)))
+```
+
+Discretizamos las variables de hasta 8 clases, con excepción de la variable cuentas_mora; esto es porque es una variable en la que el número es importante. 
+
+```{r}
+# Discretizamos las variables con hasta 8 clases
+cols<-c("plazo","estatus_vivienda","estatus_verif_ingreso","estatus_prestamo", "tipo_solicitud","metodo_recibe_pago")
+for (i in cols){
+  data_fin[,i] <- as.factor(data_fin[,i])
+}
+# Observamos los resultados
+str(data_fin)
+```
+
+A continuación podemos ver que hay dos atributos de tipo fecha y que se cargaron como datos tipo caracter, los tranformaremos a tipo fecha. 
+
+```{r}
+data_fin$fecha_prestamo <- as.Date(data_fin$fecha_prestamo, "%d-%m-%Y")
+data_fin$pagos_mes_anterior <- as.Date(data_fin$pagos_mes_anterior, "%d-%m-%Y")
+str(data_fin)
+```
+
+Como paso inicial, ahora que hicimos estos primeros cambios veremos un resumen de los datos.
+
+```{r}
+# Resumen de los datos
+summary(data_fin)
+```
+
+*****
+# Análisis de los datos
+*****
+
+Realizaremos a continuación algunas gráficas que junto con el resumen anterior, nos ayuden a darnos una idea de como son los datos numéricos más importantes de la base:
+
+```{r}
+# Realizamos una gráfica de los montos de préstamo
+library(ggplot2)
+qplot(data_fin$monto_prestamo,
+    geom="histogram",
+      binwidth = 1000,
+     main = "Histograma de los montos de prestamo",
+      xlab = "monto_prestamo",
+      fill=I("green"))
+
+# Realizamos una gráfica de las tasas de interés de los préstamos
+qplot(data_fin$tasa_interes,
+      geom="histogram",
+      binwidth = 5,  
+      main = "Histograma para tasa de interes", 
+      xlab = "tasa_interes",  
+      fill=I("blue"))
+
+# Realizamos una gráfica de los pagos recibidos
+qplot(data_fin$pagos_recib,
+      geom="histogram",
+      binwidth = 1000,  
+      main = "Histograma para pagos recibidos", 
+      xlab = "pagos_recibidos",  
+      fill=I("red"))
+
+
+# Realizamos una gráfica de los ingresos anuales
+qplot(data_fin$ingreso_anual,
+      geom="histogram",
+      binwidth = 10000,  
+      main = "Histograma para ingreso anual", 
+      xlab = "ingreso_anual",  
+      fill=I("orange"))
+
+# Realizamos una gráfica del saldo total
+qplot(data_fin$saldo_total,
+      geom="histogram",
+      binwidth = 10000,  
+      main = "Histograma para saldo total", 
+      xlab = "saldo_total",  
+      fill=I("pink"))
+```
+
+Podemos llegar a algunas conclusiones gracias a los histogramas anteriores: 1. Los préstamos oscilan entre los 1000 y los 40000
+2. La mayor parte de las tasas de interés, están entre el 8% y el 22%
+3. La mayoría de los pagos recibidos está por debajo de los 10,000
+4. Existen valores muy diferentes en el ingreso anual (min=0 y máx=2300000), por lo que podríamos estandarizar la variable o realizar un análisis adicional. 
+
+Convertiremos la variable de ingreso anual, en el logaritmo base 10 y le llamaremos log_ingreso_anual, para ver si la distribución de los valores es mejor.
+Después graficamos los resultados.
+
+```{r}
+data_fin$log_ingreso_anual<-log10(data_fin$ingreso_anual)
+# Realizamos nuevamente la gráfica de los ingresos anuales, transformados
+qplot(data_fin$log_ingreso_anual,
+      geom="histogram",
+      binwidth = .2,  
+      main = "Histograma para ingreso anual (log)", 
+      xlab = "ingreso_anual(log)",  
+      fill=I("orange"))
+```
+
+Al convertir la variable se muestra una nota, de que 9 valores fueron eliminados, debido a que salen del rango. 
+
+De cualquier forma, utilizaremos esta variable transformada para continuar con el análisis, ya que tiene una mejor distribución que la variable original. Solamente hay que tener en cuenta que una vez realizado el análisis se tiene que tranformar inversamente la variable para que tenga sentido el resultado final.
+
+Ahora realizaremos el análisis de las variables categóricas.
+
+```{r}
+attach(data_fin)
+table(plazo)
+table(estatus_vivienda)
+table(estatus_verif_ingreso)
+table(estatus_prestamo)
+```
+
+Podemos ver con estas tablas las siguientes afirmaciones:
+1. La mayoría de los préstamos son a 36 meses de plazo
+2. Los estatus más comunes en el caso de la vivienda son: MORTGAGE y RENT
+3. En el caso del estatus de la verificación del ingreso, la distribución en las 3 clases es muy parecida
+4. Los estatus del préstamo más comunes son: Current y Fully Paid. 
+5. Hay muy pocos préstamos que están retrasados (121)
+
+Veamos ahora algunos graficos adicionales. El primero nos muestra el numero de préstamos que están a 36 meses y a 60 meses.
+
+```{r}
+ggplot(data_fin,aes(x=metodo_recibe_pago,fill=monto_prestamo))+geom_bar()
+
+```
+
+Es muy claro que existen más préstamos a 36 meses, sin embargo podemos separar el plazo y ver como se comportan los préstamos en cada plazo:
+
+```{r}
+datos_plazo1<-subset(data_fin,plazo=="36 months")
+datos_plazo2<-subset(data_fin,plazo=="60 months")
+#realizamos las graficas por separado para compararlos
+qplot(datos_plazo1$monto_prestamo,
+      geom="histogram",
+      binwidth = 2000,  
+      main = "36 meses préstamos", 
+      xlab = "monto prestamo",  
+      fill=I("blue"))
+qplot(datos_plazo2$monto_prestamo,
+      geom="histogram",
+      binwidth = 2000,  
+      main = "60 meses préstamos", 
+      xlab = "monto prestamo",  
+      fill=I("red"))
+```
+
+En la gráfica de los 36 meses podemos notar, que los montos de los préstamos son más pequeños. 
+
+Se podrían realizar todo tipo de graficas para visualizar la forma de los datos y obtener más información acerca de los datos, sin embargo con base en este análisis inicial podemos empezar a realizar algunas suposiciones de la base de datos que tenemos. Ya se comentaron algunas a lo largo de la explicación anterior, estos análisis son muy importantes debido a que nos dan luz sobre el tipo de modelos que se pueden realizar para las distintas preguntas que queremos contestar. 
+
+Realizaremos un análisis de correlación entre las variables monto_prestamo y la tasa de interés.
+
+```{r}
+#install.packages("PerformanceAnalytics")
+library(PerformanceAnalytics)
+# Realizamos un análisis de correlación entre las variables 
+dat1 <- data.frame(data_fin$monto_prestamo, data_fin$tasa_interes)
+chart.Correlation(dat1)
+```
+
+También realizaremos un análisis de correlación entre las variables monto_prestamo y pagos_recib
+
+```{r}
+library(PerformanceAnalytics)
+# Realizamos un análisis de correlación entre las variables 
+dat1 <- data.frame(data_fin$monto_prestamo, data_fin$pagos_recib)
+chart.Correlation(dat1)
+```
+
+A continuación compararemos si el monto del préstamo es mayor cuando una persona vive en TN o en MN. Por esta razón crearemos 2 muestras, las de las personas que viven en TN y la de las personas que viven en MN.
+
+```{r}
+data_fin.TN.montos <-
+data_fin[data_fin$estado_vive == "TN",]$monto_prestamo
+data_fin.MN.montos <-
+data_fin[data_fin$estado_vive == "MN",]$monto_prestamo
+```
+
+Así planteamos el contraste de hipótesis de las dos muestras sobre la diferencia de medias.
+
+```{r}
+t.test(data_fin.TN.montos, data_fin.MN.montos,
+alternative = "less")
+```
+
+
+El p-value no es tan pequeño, sin embargo parece que existe una diferencia considerable entre los montos de los prestaos de las personas de TN y de MN.
+
+Por último, realizaremos algunos modelos de regresión lineal con las variables que hemos ido visualizando en el trabajo para poder identificar si es posible predecir el monto del prestamo con dichas variables.
+
+```{r}
+# Regresores numericos
+interes = data_fin$tasa_interes
+pagos = data_fin$pagos_recib
+# Regresores cualitativos
+plazop = data_fin$plazo
+metodop = data_fin$metodo_recibe_pago
+# Variable a predecir
+monto = data_fin$monto_prestamo
+# Generación de dos modelos
+modelo1 <- lm(monto ~ pagos + plazop, data = data_fin)
+modelo2 <- lm(monto ~ interes + pagos + plazop +
+metodop, data = data_fin)
+```
+
+Calculamos el coeficente de determinación para medir la bondad de loos dos modelos realizados:
+
+```{r}
+tabla.coeficientes <- matrix(c(1, summary(modelo1)$r.squared,
+2, summary(modelo2)$r.squared),
+ncol = 2, byrow = TRUE)
+colnames(tabla.coeficientes) <- c("Modelo", "R^2")
+tabla.coeficientes
+```
+
+Ambos coeficientes son bajos para este tipo de pruebas, sin embargo de elegir uno de los modelos deberíamos elegir el segundo, ya que tiene el mejor coeficiente.
+
+
+
+
+
+
